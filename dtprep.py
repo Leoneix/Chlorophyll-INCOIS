@@ -6,7 +6,6 @@ ds = xr.open_dataset('master_merged_grid.nc', chunks={'time': 50})
 
 print("Calculating metric conversions for spatial derivatives...")
 
-# Define metric conversion factors
 deg_to_m = 111320.0
 
 cos_lat = np.cos(np.deg2rad(ds.lat))
@@ -41,7 +40,6 @@ ds['month_cos'] = np.cos(2 * np.pi * ds['time'].dt.month / 12.0)
 ds['day_sin'] = np.sin(2 * np.pi * ds['time'].dt.dayofyear / 365.25)
 ds['day_cos'] = np.cos(2 * np.pi * ds['time'].dt.dayofyear / 365.25)
 
-# Calculate exact boundaries of your grid to scale to [-1, 1]
 lat_min, lat_max = ds.lat.min(), ds.lat.max()
 lon_min, lon_max = ds.lon.min(), ds.lon.max()
 
@@ -58,47 +56,35 @@ vars_to_keep = [
 
 ds_final = ds[vars_to_keep]
 
-print("Squeezing out degenerate dimensions...")
 ds_final = ds_final.squeeze().drop_vars(['depth', 'number'], errors='ignore')
 
 print("Unifying Dask chunks...")
 ds_final = ds_final.unify_chunks()
 
-# ---> THE UPGRADE: Use Zarr instead of NetCDF <---
 temp_zarr = 'phase2_math_checkpoint.zarr'
 print(f"Executing mathematical task graph and saving to Zarr: {temp_zarr}")
 print("Zarr allows parallel writing, bypassing the NetCDF traffic jam...")
 
-# Note: You may need to run `pip install zarr` in your terminal if you don't have it!
 ds_final.to_zarr(temp_zarr, mode='w')
 print("Math checkpoint complete!")
 
-# ---------------------------------------------------------
-# Now, load the pre-calculated Zarr data back in
 temp_zarr = 'phase2_math_checkpoint.zarr'
 
-# ---------------------------------------------------------
-# Load the pre-calculated Zarr data back in
 print("Loading Zarr checkpoint...")
-# ---> THE FIX: Force lat and lon to be unchunked (-1) so flattening requires zero shuffling <---
 ds_calculated = xr.open_zarr(temp_zarr, chunks={'time': 50, 'lat': -1, 'lon': -1})
 
 print("Unifying chunks across all variables...")
 ds_calculated = ds_calculated.unify_chunks()
 
-# Flatten into a dataframe
 print("Flattening 3D Data to Tabular Dask DataFrame...")
 df = ds_calculated.to_dask_dataframe()
 
 print("Filtering out missing physical grid rows (landmasses)...")
-# Drop rows where the PHYSICAL grid is missing (e.g., landmasses)
 df = df.dropna(subset=['uo', 'zos'])
 
-# Save the Dask DataFrame to Parquet
 output_parquet = 'phase2_spatial_temporal_features.parquet'
 print(f"Executing flatten operation and streaming to {output_parquet}...")
 
-# We specify custom-sized row groups to keep the write smooth and efficient
 df.to_parquet(output_parquet, engine='pyarrow', row_group_size=100_000)
 
-print("Save complete! Data is ready for DuckDB.")
+print("Saved")
