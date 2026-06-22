@@ -3,7 +3,7 @@ import numpy as np
 
 
 ds_glory = xr.open_dataset(
-    r"C:\Users\parth\Documents\GLORY\cmems\cmems_1993_2006_merged.nc",
+    r"C:\Users\parth\Documents\GLORY\cmems\cmems_1993_2026_merged.nc",
     chunks={'time': 50} 
 )
 
@@ -49,10 +49,8 @@ ds_merged['ssrd'] = ds_merged['ssrd'] / 86400.0
 ds_merged['mlotst'] = np.log10(ds_merged['mlotst'])
 ds_merged['chlor_a'] = np.log10(ds_merged['chlor_a'])
 
-output_file = 'master_merged_grid.nc'
+output_file = 'merged_dataset.nc'
 print(f"saved to {output_file}.")
 
 ds_merged.to_netcdf(output_file)
-
-print("\n--- Merge Complete! ---")
 print(xr.open_dataset(output_file))
