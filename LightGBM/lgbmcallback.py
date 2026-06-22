@@ -13,20 +13,17 @@ drop_cols = ['time', 'lat', 'lon', target_col]
 lat_min, lat_max = 5.0, 25.0
 lon_min, lon_max = 65.0, 78.0
 
-print("Connecting to DuckDB...")
 con = duckdb.connect()
-print("Extracting an optimized 25% sample from the Arabian Sea bounding box...")
 query_train = f"""
     SELECT * FROM '{file_path}' 
     WHERE EXTRACT(YEAR FROM time) BETWEEN 1998 AND 2024 
     AND lat BETWEEN {lat_min} AND {lat_max}
     AND lon BETWEEN {lon_min} AND {lon_max}
-    USING SAMPLE 25 PERCENT
+    
 """
 df_train = con.execute(query_train).df()
 print(f"Success! {len(df_train):,} rows loaded into memory.")
 
-print("Creating strict temporal splits (Train: 1998-2023, Val: 2024)...")
 df_train['time'] = pd.to_datetime(df_train['time'])
 df_train['year'] = df_train['time'].dt.year
 
@@ -45,14 +42,12 @@ y_val = X_val_full[target_col]
 del df_train, X_train_full, X_val_full
 gc.collect()
 
-print("Downcasting features to float32 to optimize memory footprint...")
 for col in X_train.select_dtypes(include=['float64']).columns:
     X_train[col] = X_train[col].astype('float32')
 for col in X_val.select_dtypes(include=['float64']).columns:
     X_val[col] = X_val[col].astype('float32')
 gc.collect()
 
-print("\nInitializing Q10, Q50, and Q90 Models...")
 locked_params = {
     'learning_rate': 0.02211,
     'n_estimators': 1000,
@@ -101,9 +96,8 @@ model_q90.fit(
 )
 
 os.makedirs('saved_models', exist_ok=True)
-print("\nArchiving final models...")
 joblib.dump(model_q10, 'saved_models/lgbm_q10_final_arabian.pkl')
 joblib.dump(model_q50, 'saved_models/lgbm_q50_final_arabian.pkl')
 joblib.dump(model_q90, 'saved_models/lgbm_q90_final_arabian.pkl')
 
-print("\nTraining Complete! Models successfully exported.")
+print("\nTraining Complete!")
